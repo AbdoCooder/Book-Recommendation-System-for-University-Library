@@ -74,6 +74,7 @@ jobs:
           gh label create "eval-code" --color "A29BFE" --description "Worth 2 pts — Notebook & reproducibility" --force
           gh label create "eval-report" --color "FD79A8" --description "Worth 2 pts — PDF report quality" --force
           gh label create "eval-presentation" --color "FDCB6E" --description "Worth 1 pt — Oral defense" --force
+          gh label create "high-priority" --color "FF0000" --description "Critical path item" --force
 
           echo "✅ Labels created/updated."
 
