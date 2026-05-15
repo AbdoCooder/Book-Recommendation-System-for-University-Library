@@ -1,0 +1,275 @@
+name: "📚 Setup Data Mining Project — Full Roadmap Automation"
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Official project start date (YYYY-MM-DD). Phase 0 learning ends here."
+        required: true
+        default: "2026-05-18"
+      member_a:
+        description: "GitHub username for Member A (Data Architect & Recommender Lead)"
+        required: true
+        default: "student-a"
+      member_b:
+        description: "GitHub username for Member B (Analytics & DSS Lead)"
+        required: true
+        default: "student-b"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  build-roadmap:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MEMBER_A: ${{ github.event.inputs.member_a }}
+      MEMBER_B: ${{ github.event.inputs.member_b }}
+      START: ${{ github.event.inputs.start_date }}
+    steps:
+      - name: 📅 Calculate milestone due dates
+        id: dates
+        run: |
+          echo "phase0=$(date -d "$START" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m1=$(date -d "$START + 7 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m2=$(date -d "$START + 14 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m3=$(date -d "$START + 21 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m4=$(date -d "$START + 28 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m5=$(date -d "$START + 35 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m6=$(date -d "$START + 42 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m7=$(date -d "$START + 49 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "m8=$(date -d "$START + 56 days" +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Create labels (idempotent)
+        run: |
+          # Phase labels
+          gh label create "phase-0" --color "C5DEF5" --description "Learning prerequisites before coding" --force
+          gh label create "phase-1" --color "B4E197" --description "Environment & dataset setup" --force
+          gh label create "phase-2" --color "FFD6A5" --description "Core implementation" --force
+
+          # Milestone labels
+          for i in {1..8}; do
+            gh label create "milestone-$i" --color "FF9F43" --description "Week $i deliverables" --force
+          done
+
+          # Owner labels
+          gh label create "member-a" --color "A29BFE" --description "Data Architect & Recommender Lead" --force
+          gh label create "member-b" --color "FD79A8" --description "Analytics & DSS Lead" --force
+          gh label create "both-members" --color "FDCB6E" --description "Requires both students" --force
+
+          # Work-type labels
+          gh label create "type-research" --color "74B9FF" --description "Reading, theory, and concept mastery" --force
+          gh label create "type-code" --color "55EFC4" --description "Implementation and engineering" --force
+          gh label create "type-analysis" --color "FAB1A0" --description "EDA, metrics, and interpretation" --force
+          gh label create "type-docs" --color "E17055" --description "Report, presentation, and documentation" --force
+
+          # Evaluation criterion labels (maps to /20 rubric)
+          gh label create "eval-problematic" --color "2D3436" --description "Worth 2 pts — Problem framing" --force
+          gh label create "eval-data" --color "636E72" --description "Worth 3 pts — Data quality & understanding" --force
+          gh label create "eval-method" --color "B2BEC3" --description "Worth 4 pts — Algorithm choice & justification" --force
+          gh label create "eval-results" --color "DFE6E9" --description "Worth 3 pts — Metrics & interpretation" --force
+          gh label create "eval-dss" --color "6C5CE7" --description "Worth 3 pts — Decision Support System" --force
+          gh label create "eval-code" --color "A29BFE" --description "Worth 2 pts — Notebook & reproducibility" --force
+          gh label create "eval-report" --color "FD79A8" --description "Worth 2 pts — PDF report quality" --force
+          gh label create "eval-presentation" --color "FDCB6E" --description "Worth 1 pt — Oral defense" --force
+
+          echo "✅ Labels created/updated."
+
+      - name: 🎯 Create milestones
+        run: |
+          create_milestone() {
+            local title="$1"
+            local due="$2"
+            local desc="$3"
+            gh milestone create --title "$title" --due-date "$due" --description "$desc" || echo "  ⚠️ Milestone '$title' may already exist. Skipping."
+          }
+
+          create_milestone "Phase 0: Learning & Prerequisites" "${{ steps.dates.outputs.phase0 }}" "Complete all theoretical learning, tool setup, and dataset validation before writing production code."
+          create_milestone "M1: Foundation & EDA" "${{ steps.dates.outputs.m1 }}" "Understand the data deeply. Statistical profiling, popularity analysis, and problem framing."
+          create_milestone "M2: Preprocessing & Baseline" "${{ steps.dates.outputs.m2 }}" "Clean data, handle sparsity, build train/test split, and establish a non-personalized baseline."
+          create_milestone "M3: Collaborative Filtering" "${{ steps.dates.outputs.m3 }}" "Implement UBCF and IBCF. Address cold start and sparsity. Generate first recommendations."
+          create_milestone "M4: Clustering & Segmentation" "${{ steps.dates.outputs.m4 }}" "K-Means and DBSCAN/BIRCH on users or books. Validate and interpret clusters as personas."
+          create_milestone "M5: Hybrid System" "${{ steps.dates.outputs.m5 }}" "Combine CF + Clustering. Add SVD matrix factorization. Compare minimum 3 models."
+          create_milestone "M6: DSS & Visualization" "${{ steps.dates.outputs.m6 }}" "Translate results into library decisions. Build KPIs, ROC curves, and Streamlit dashboard."
+          create_milestone "M7: Evaluation & Tuning" "${{ steps.dates.outputs.m7 }}" "Final metrics, statistical significance, hyperparameter tuning, sensitivity analysis."
+          create_milestone "M8: Documentation & Defense" "${{ steps.dates.outputs.m8 }}" "Polished notebook, PDF report, presentation slides, and mock Q&A rehearsal."
+
+          echo "✅ Milestones created."
+
+      - name: 📝 Helper — define issue creator
+        run: |
+          cat << 'EOF' > /tmp/create_issue.sh
+          #!/bin/bash
+          set -e
+          TITLE="$1"
+          BODY="$2"
+          ASSIGNEE_ARG="$3"
+          LABELS="$4"
+          MILESTONE="$5"
+
+          ASSIGNEE_FLAGS=""
+          if [ "$ASSIGNEE_ARG" = "both" ]; then
+            ASSIGNEE_FLAGS="--assignee \"$MEMBER_A\" --assignee \"$MEMBER_B\""
+          else
+            ASSIGNEE_FLAGS="--assignee \"$ASSIGNEE_ARG\""
+          fi
+
+          eval gh issue create \
+            --title \"$TITLE\" \
+            --body \"$BODY\" \
+            $ASSIGNEE_FLAGS \
+            --label \"$LABELS\" \
+            --milestone \"$MILESTONE\"
+          EOF
+          chmod +x /tmp/create_issue.sh
+
+      - name: 📚 Phase 0 — Create learning issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          # --- MEMBER A ---
+          issue "[P0-A1] Master Recommender Systems Theory" $'## Objective\nGain deep theoretical understanding of collaborative filtering, matrix factorization, cold start, and sparsity before touching code.\n\n## Acceptance Criteria\n- [ ] Read *Recommender Systems Handbook* Chapter 2 (or equivalent MOOC lectures)\n- [ ] Write 1-page comparison: User-based vs. Item-based CF (pros/cons, complexity, when to use each)\n- [ ] Document cold-start categories (new user, new item, system cold-start) with mitigation strategies\n- [ ] Understand sparsity implications on cosine similarity and Pearson correlation\n\n## Grading Impact\nDirectly supports **Method (4/20)** and **Problematic (2/20)**.\n\n**Tip:** Focus on *why* each technique fails in sparse regimes. You will need to justify this in the report.' "$MEMBER_A" "phase-0,member-a,type-research,high-priority,eval-method,eval-problematic" "Phase 0: Learning & Prerequisites"
+
+          issue "[P0-A2] Setup Python Environment & Git Workflow" $'## Objective\nPrepare a reproducible development environment and agree on collaboration rules.\n\n## Acceptance Criteria\n- [ ] Create shared GitHub repo with README and `.gitignore` (Python/Jupyter)\n- [ ] Write `requirements.txt` pinning: pandas, numpy, scikit-learn, scikit-surprise, implicit, matplotlib, seaborn, plotly, streamlit, jupyterlab\n- [ ] Both members successfully run a test notebook end-to-end on their machines\n- [ ] Agree on branch naming: `member-a/feature-name`, `member-b/feature-name`\n- [ ] Set up PR template with checklist (EDA, tests, docs updated)\n\n## Grading Impact\nSupports **Code (2/20)** reproducibility.' "$MEMBER_A" "phase-0,member-a,type-code,high-priority,eval-code" "Phase 0: Learning & Prerequisites"
+
+          issue "[P0-A3] Learn Surprise Library & scikit-surprise Patterns" $'## Objective\nBecome fluent in the primary CF library to avoid reinventing wheels.\n\n## Acceptance Criteria\n- [ ] Complete the official Surprise "Getting Started" guide on a toy dataset\n- [ ] Implement a minimal SVD model and compute RMSE/MAE\n- [ ] Understand how Surprise handles train/test splits and cross-validation\n- [ ] Document how to export a fitted model for the hybrid phase\n\n## Resources\n- https://surpriselib.com/\n- GitHub: NicolasHug/Surprise\n\n## Grading Impact\nAccelerates **Method (4/20)** and **Results (3/20)** delivery.' "$MEMBER_A" "phase-0,member-a,type-research,high-priority,eval-method" "Phase 0: Learning & Prerequisites"
+
+          # --- MEMBER B ---
+          issue "[P0-B1] Master Clustering Algorithms & Validation" $'## Objective\nUnderstand clustering theory deeply enough to justify algorithmic choices in the report.\n\n## Acceptance Criteria\n- [ ] Study K-Means: Lloyd\'s algorithm, k-means++, limitations (spherical assumption, outlier sensitivity)\n- [ ] Study DBSCAN: density reachability, epsilon/minPts tuning, handling varying densities\n- [ ] Study BIRCH: CF-tree, when it outperforms K-Means on large data\n- [ ] Master validation metrics: Elbow method, Silhouette score, Davies-Bouldin index\n- [ ] Write 1-page decision guide: "Which clustering algorithm for user rating patterns?"\n\n## Grading Impact\nCore to **Method (4/20)** and **Results (3/20)**.' "$MEMBER_B" "phase-0,member-b,type-research,high-priority,eval-method" "Phase 0: Learning & Prerequisites"
+
+          issue "[P0-B2] Learn Visualization Stack & Dashboard Design" $'## Objective\nBuild the skills needed for advanced interactive visualizations and the Streamlit bonus.\n\n## Acceptance Criteria\n- [ ] Complete Plotly Express tutorial; create scatter, bar, and heatmap figures\n- [ ] Build a minimal Streamlit app with sidebar, dataframe display, and Altair/Plotly chart\n- [ ] Understand Plotly theming and consistent color palettes (set a project palette: e.g., #3498db, #e67e22, #2ecc71)\n- [ ] Study dashboard UX for non-technical users (the librarian): clear titles, actionable KPI cards, filtered views\n\n## Grading Impact\nUnlocks **Bonus** for advanced visualizations and interactive dashboard.' "$MEMBER_B" "phase-0,member-b,type-research,high-priority,eval-dss" "Phase 0: Learning & Prerequisites"
+
+          issue "[P0-B3] Study DSS Concepts & Library KPI Frameworks" $'## Objective\nMove beyond "coding" to "decision intelligence." This is the differentiator for a perfect score.\n\n## Acceptance Criteria\n- [ ] Read 2 papers on recommender systems as decision support in libraries/academia\n- [ ] Define 5 library-specific KPIs: catalog coverage, diversity, novelty, serendipity, acquisition ROI\n- [ ] Understand how cluster personas translate to acquisition budgets and shelf space decisions\n- [ ] Draft the DSS narrative: "We did not just predict ratings; we told the librarian which subject areas to expand."\n\n## Grading Impact\nDirectly targets **DSS (3/20)** — often the most underestimated criterion.' "$MEMBER_B" "phase-0,member-b,type-research,high-priority,eval-dss" "Phase 0: Learning & Prerequisites"
+
+          # --- BOTH ---
+          issue "[P0-Shared] Select & Validate Dataset" $'## Objective\nMake a final, justified dataset choice before Week 1 begins.\n\n## Acceptance Criteria\n- [ ] Download Book-Crossing Dataset and load with `pandas.read_csv` without errors\n- [ ] Verify schema: columns, dtypes, row counts, missing value percentages\n- [ ] (Optional) Download Goodreads/Kaggle enrichment dataset and document join strategy\n- [ ] Produce a 1-page dataset profile: size, sparsity ratio, rating scale, user demographics if available\n- [ ] **Decision:** Confirm dataset choice in Kickoff Document\n\n## Grading Impact\nFirst impression for **Data (3/20)**.' "both" "phase-0,both-members,type-analysis,high-priority,eval-data" "Phase 0: Learning & Prerequisites"
+
+      - name: 🔧 Phase 1 — Create prerequisite setup issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[P1-A1] Initialize Repo, Requirements, & Notebook Structure" $'## Objective\nEstablish the technical foundation so implementation can begin immediately on Day 1.\n\n## Acceptance Criteria\n- [ ] Repo contains `data/raw/`, `data/processed/`, `notebooks/`, `src/`, `reports/` directories\n- [ ] `requirements.txt` is tested in a fresh virtual environment\n- [ ] Create `main.ipynb` skeleton with sections: Setup, EDA, Preprocessing, CF, Clustering, Hybrid, Evaluation, DSS\n- [ ] Add utility module `src/evaluation.py` with helper functions for RMSE, Precision@K, Recall@K\n- [ ] Configure Jupyter Lab with useful extensions (table of contents, variable inspector)\n\n## Deliverable\nLink to clean repo structure.' "$MEMBER_A" "phase-1,member-a,type-code,high-priority,eval-code" "M1: Foundation & EDA"
+
+          issue "[P1-A2] Download & Validate Dataset Schema" $'## Objective\nEnsure the dataset is ready for analysis with documented quality issues.\n\n## Acceptance Criteria\n- [ ] Load BX-Books, BX-Book-Ratings, BX-Users into DataFrames\n- [ ] Document exact missing value counts per column\n- [ ] Identify outliers (e.g., users with >1000 ratings, books with 1 rating)\n- [ ] Calculate and document sparsity ratio: `(1 - non_zero_entries / total_possible) * 100`\n- [ ] Save a `data_quality_report.md` in `reports/`\n\n## Deliverable\n`reports/data_quality_report.md`' "$MEMBER_A" "phase-1,member-a,type-analysis,high-priority,eval-data" "M1: Foundation & EDA"
+
+          issue "[P1-B1] Setup Report Infrastructure (Overleaf/Zotero)" $'## Objective\nPrepare professional documentation tooling so the report is not a last-minute rush.\n\n## Acceptance Criteria\n- [ ] Create shared Overleaf project (or Google Docs with Zotero integration)\n- [ ] Define citation style (APA or IEEE) and import 5 seed references on recommender systems\n- [ ] Create LaTeX section skeleton: Introduction, Data, Method, Results, DSS, Conclusion\n- [ ] Set up figure folder structure for auto-importing charts from `notebooks/outputs/`\n\n## Deliverable\nOverleaf link or shared doc link in repo README.' "$MEMBER_B" "phase-1,member-b,type-docs,high-priority,eval-report" "M1: Foundation & EDA"
+
+          issue "[P1-Shared] Write & Approve Kickoff Document" $'## Objective\nAlign both members on scope, dataset, and evaluation strategy.\n\n## Acceptance Criteria\n- [ ] 2-page document covering:\n  - Dataset choice justification\n  - Target metric definitions (RMSE, Precision@5, Recall@5)\n  - Model list (UBCF, IBCF, SVD, K-Means, Hybrid)\n  - Division of labor confirmation\n  - Risk register (e.g., "If dataset is too sparse, we fallback to implicit feedback")\n- [ ] Both members comment approval via GitHub issue reaction 👍\n\n## Grading Impact\nDemonstrates **Problematic (2/20)** maturity.' "both" "phase-1,both-members,type-docs,high-priority,eval-problematic" "M1: Foundation & EDA"
+
+      - name: 📊 Milestone 1 — Foundation & EDA issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M1-A1] Data Validation & Schema Documentation" $'## Objective\nProduce the authoritative data dictionary for the project.\n\n## Acceptance Criteria\n- [ ] Complete data dictionary table: variable name, type, description, example, missing %\n- [ ] Identify implicit vs explicit ratings and how they will be handled\n- [ ] Document data quality red flags (e.g., age=0 in BX-Users, ISBN formatting issues)\n- [ ] Merge datasets if using enrichment; document join keys and cardinality\n\n## Deliverable\n`reports/data_dictionary.md`' "$MEMBER_A" "milestone-1,member-a,type-analysis,high-priority,eval-data" "M1: Foundation & EDA"
+
+          issue "[M1-B1] EDA: Rating Distribution & Book Popularity" $'## Objective\nVisually profile the rating behavior and popularity bias.\n\n## Acceptance Criteria\n- [ ] Histogram of rating distribution (1-10 scale or implicit 0-10)\n- [ ] Top-20 most-rated books bar chart with average rating overlay\n- [ ] Long-tail analysis: % of books with <5 ratings\n- [ ] Analysis of popularity bias: "Are highly-rated books also highly-reviewed?"\n- [ ] All charts saved as high-res PNGs in `reports/figures/`\n\n## Tip\nUse consistent project color palette. Add a caption to every figure: "Figure 1: ..." for direct import into LaTeX.' "$MEMBER_B" "milestone-1,member-b,type-analysis,high-priority,eval-data" "M1: Foundation & EDA"
+
+          issue "[M1-B2] EDA: User Behavior Profiling" $'## Objective\nSegment user activity to inform the cold-start strategy.\n\n## Acceptance Criteria\n- [ ] Distribution of ratings per user (log scale)\n- [ ] Identify "power users" (top 5% by volume) vs "lurkers" (1-2 ratings)\n- [ ] Cross-tab: user age group vs preferred genre (if genre data available)\n- [ ] Temporal analysis: rating activity over time (if timestamp available)\n- [ ] Document findings in structured markdown\n\n## Deliverable\n`notebooks/02_eda_users.ipynb`' "$MEMBER_B" "milestone-1,member-b,type-analysis,high-priority,eval-data" "M1: Foundation & EDA"
+
+          issue "[M1-Shared] Define Cold-Start Scenarios & Problem Framing" $'## Objective\nTransform raw data observations into the project\'s analytical problem statement.\n\n## Acceptance Criteria\n- [ ] Enumerate 3 cold-start scenarios found in the dataset:\n  1. New user (no ratings)\n  2. New book (no ratings)\n  3. System-wide sparsity (insufficient neighbors)\n- [ ] Propose fallback strategy for each (popularity, content-based, demographic)\n- [ ] Write the "Problem Framing" section of the final report (2-3 paragraphs)\n- [ ] Frame the library\'s business problem: information overload, missed relevant books, acquisition budget waste\n\n## Grading Impact\n**Problematic (2/20)** + seeds **DSS (3/20)**.' "both" "milestone-1,both-members,type-analysis,high-priority,eval-problematic,eval-dss" "M1: Foundation & EDA"
+
+      - name: 🧹 Milestone 2 — Preprocessing & Baseline issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M2-A1] Build Preprocessing Pipeline" $'## Objective\nCreate a reproducible data cleaning pipeline with justified transformations.\n\n## Acceptance Criteria\n- [ ] Handle missing values with documented strategy (drop vs impute vs flag)\n- [ ] Normalize ratings if justified (mean-centering per user; explain why not min-max)\n- [ ] Remove or cap extreme outliers with statistical justification\n- [ ] Encode categorical variables (ISBN, User-ID) preserving mappings for later interpretation\n- [ ] Build `src/preprocessing.py` with functions: `load_data()`, `clean_data()`, `split_data()`\n- [ ] Pipeline must be deterministic (set random seeds)\n\n## Tip\nEvery choice needs a justification paragraph. The jury awards **Data (3/20)** for *why*, not just *what*.' "$MEMBER_A" "milestone-2,member-a,type-code,high-priority,eval-data,eval-method" "M2: Preprocessing & Baseline"
+
+          issue "[M2-A2] Design Train/Test Split Strategy" $'## Objective\nEnsure evaluation integrity by preventing data leakage.\n\n## Acceptance Criteria\n- [ ] Compare random split vs time-based split (if timestamps exist)\n- [ ] Justify chosen strategy in 1 paragraph\n- [ ] Ensure no user or item appears only in test set without handling strategy\n- [ ] Compute and document split statistics: train sparsity, test sparsity, overlap ratios\n- [ ] Save split indices to `data/processed/` for reproducibility\n\n## Deliverable\n`notebooks/03_preprocessing.ipynb` with split justification section.' "$MEMBER_A" "milestone-2,member-a,type-code,high-priority,eval-method" "M2: Preprocessing & Baseline"
+
+          issue "[M2-B1] Implement Popularity Baseline Model" $'## Objective\nEstablish the simplest possible benchmark. Every advanced model must beat this.\n\n## Acceptance Criteria\n- [ ] Non-personalized: recommend globally most-rated or highest-average books\n- [ ] Personalized-simple: recommend most popular books within a user\'s most frequent genre\n- [ ] Compute baseline RMSE and Precision@5\n- [ ] Document why this baseline is naive but necessary\n\n## Deliverable\n`notebooks/04_baseline.ipynb`' "$MEMBER_B" "milestone-2,member-b,type-code,high-priority,eval-results" "M2: Preprocessing & Baseline"
+
+          issue "[M2-Shared] Document Preprocessing Decisions" $'## Objective\nCreate the authoritative "Data" section of the report.\n\n## Acceptance Criteria\n- [ ] Write 3-4 pages covering: source, schema, cleaning steps, sparsity handling, split strategy\n- [ ] Include 2-3 key figures from EDA\n- [ ] Cite any external data sources\n- [ ] Peer review: Member A reviews Member B\'s draft and vice versa\n\n## Deliverable\n`reports/chapters/data.tex` (or equivalent section in shared doc)' "both" "milestone-2,both-members,type-docs,high-priority,eval-data,eval-report" "M2: Preprocessing & Baseline"
+
+      - name: 🤝 Milestone 3 — Collaborative Filtering issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M3-A1] Implement User-Based CF (Cosine Similarity)" $'## Objective\nBuild the first personalized recommender using neighborhood methods.\n\n## Acceptance Criteria\n- [ ] Implement UBCF from scratch OR using Surprise, with explicit similarity function\n- [ ] Generate Top-N recommendations for sample users\n- [ ] Analyze similarity distribution: how many neighbors have similarity > 0.5?\n- [ ] Document computational complexity and runtime for 1,000 users\n- [ ] Save model artifact and similarity matrix (sparse format)\n\n## Tip\nIf implementing from scratch, use `scipy.sparse` to handle the user-item matrix efficiently.' "$MEMBER_A" "milestone-3,member-a,type-code,high-priority,eval-method" "M3: Collaborative Filtering"
+
+          issue "[M3-A2] Implement Item-Based CF (Pearson Correlation)" $'## Objective\nCompare item-based approach, often more stable than user-based for book domains.\n\n## Acceptance Criteria\n- [ ] Implement IBCF with Pearson correlation or adjusted cosine\n- [ ] Compare coverage: % of items that can be recommended vs UBCF\n- [ ] Analyze item similarity matrix sparsity\n- [ ] Generate Top-N recommendations for same sample users to enable direct comparison\n- [ ] Document when IBCF outperforms UBCF (item stability vs user volatility)\n\n## Deliverable\n`notebooks/05_collaborative_filtering.ipynb` with both models.' "$MEMBER_A" "milestone-3,member-a,type-code,high-priority,eval-method" "M3: Collaborative Filtering"
+
+          issue "[M3-B1] Design Cold-Start Fallback Strategy" $'## Objective\nEnsure the system degrades gracefully when CF fails.\n\n## Acceptance Criteria\n- [ ] Implement popularity fallback for users with <N ratings (tune N)\n- [ ] Implement demographic fallback if age/location data exists\n- [ ] Hybrid fallback logic: "If neighbors < 5, switch to popularity; if item unrated, switch to genre average"\n- [ ] Measure fallback trigger rate on test set\n- [ ] Document in report: "Cold-start is not just a technical problem; it is a user experience problem."\n\n## Grading Impact\n**Method (4/20)** + **DSS (3/20)**.' "$MEMBER_B" "milestone-3,member-b,type-code,high-priority,eval-method,eval-dss" "M3: Collaborative Filtering"
+
+          issue "[M3-Shared] Analyze Sparsity Impact & Similarity Distribution" $'## Objective\nDemonstrate deep understanding of why CF is hard in this domain.\n\n## Acceptance Criteria\n- [ ] Plot similarity distribution histogram for UBCF and IBCF\n- [ ] Correlate sparsity with prediction accuracy per user\n- [ ] Discuss: "At what sparsity level does neighborhood CF break down?"\n- [ ] Propose one mitigation (e.g., dimensionality reduction, smoothing) for the hybrid phase\n- [ ] Write the "Method: Collaborative Filtering" report section\n\n## Deliverable\nAnalysis section in `reports/chapters/method_cf.tex`' "both" "milestone-3,both-members,type-analysis,high-priority,eval-method,eval-results" "M3: Collaborative Filtering"
+
+      - name: 🎯 Milestone 4 — Clustering & Segmentation issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M4-B1] K-Means Clustering of Users (Rating Patterns)" $'## Objective\nDiscover latent user segments based on rating behavior.\n\n## Acceptance Criteria\n- [ ] Construct user feature vectors: rating mean, variance, genre diversity, activity level\n- [ ] Run K-Means for K=2..15; plot Elbow curve and Silhouette scores\n- [ ] Select optimal K with dual justification (Elbow + Silhouette)\n- [ ] Visualize clusters with PCA or t-SNE projection (2D Plotly figure)\n- [ ] Save cluster assignments to `data/processed/user_clusters.csv`\n\n## Tip\nFeature engineering is critical. Raw ratings are sparse; aggregate statistics per user are dense and clusterable.' "$MEMBER_B" "milestone-4,member-b,type-code,high-priority,eval-method" "M4: Clustering & Segmentation"
+
+          issue "[M4-B2] DBSCAN/BIRCH Comparative Clustering" $'## Objective\nProvide algorithmic comparison to justify K-Means choice (or overturn it).\n\n## Acceptance Criteria\n- [ ] Run DBSCAN with epsilon grid search; report number of clusters and noise points %\n- [ ] Run BIRCH if dataset is large; compare runtime to K-Means\n- [ ] Create comparison table: algorithm, clusters found, noise %, Silhouette, runtime\n- [ ] Justify final algorithm choice for the hybrid system\n- [ ] Document why density-based methods struggle with high-dimensional sparse data\n\n## Deliverable\n`notebooks/06_clustering_comparison.ipynb`' "$MEMBER_B" "milestone-4,member-b,type-code,high-priority,eval-method" "M4: Clustering & Segmentation"
+
+          issue "[M4-B3] Cluster Validation & Stability Analysis" $'## Objective\nProve clusters are real, not artifacts.\n\n## Acceptance Criteria\n- [ ] Compute Silhouette score per sample; identify borderline users\n- [ ] Run K-Means on 5 bootstrap samples; report cluster stability (Adjusted Rand Index)\n- [ ] Validate clusters against external variable if available (e.g., age group, location)\n- [ ] Document validation results in structured table\n\n## Grading Impact\n**Results (3/20)** — rigor in validation impresses juries.' "$MEMBER_B" "milestone-4,member-b,type-analysis,high-priority,eval-results" "M4: Clustering & Segmentation"
+
+          issue "[M4-Shared] Interpret Clusters & Create User Personas" $'## Objective\nTransform statistical clusters into actionable library personas.\n\n## Acceptance Criteria\n- [ ] For each cluster, write a 3-sentence persona:\n  - Name (e.g., "The Researchers", "The Casual Readers", "The Genre Loyalists")\n  - Behavioral profile (rating volume, diversity, mean rating)\n  - Library implication (what to recommend, what to acquire)\n- [ ] Create a persona infographic (Canva, PowerPoint, or Plotly subplot)\n- [ ] Write the "Method: Clustering" and "DSS: Persona Strategy" report sections\n\n## Tip\nThis is where you earn **DSS (3/20)**. Do not describe clusters as "Cluster 1 has mean 4.2." Describe them as people.' "both" "milestone-4,both-members,type-analysis,high-priority,eval-method,eval-dss" "M4: Clustering & Segmentation"
+
+      - name: ⚡ Milestone 5 — Hybrid System issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M5-A1] Implement Matrix Factorization (SVD via Surprise)" $'## Objective\nAdd a model-based baseline that handles sparsity better than neighborhood methods.\n\n## Acceptance Criteria\n- [ ] Train SVD with Surprise; tune n_factors, n_epochs, lr_all, reg_all via grid search or random search\n- [ ] Compare SVD RMSE to UBCF and IBCF baselines\n- [ ] Analyze latent factors: can any factor be interpreted as a genre or theme?\n- [ ] Save best SVD model and hyperparameters\n- [ ] Document why matrix factorization mitigates sparsity (latent space densification)\n\n## Deliverable\n`notebooks/07_matrix_factorization.ipynb`' "$MEMBER_A" "milestone-5,member-a,type-code,high-priority,eval-method" "M5: Hybrid System"
+
+          issue "[M5-B1] Design Hybrid Architecture (CF + Clustering)" $'Objective\nArchitect the fusion strategy before coding.\n\n## Acceptance Criteria\n- [ ] Draw architecture diagram: inputs (ratings + cluster assignments), fusion layer, output (ranked list)\n- [ ] Choose fusion strategy: weighted, switching, cascade, or feature-combination\n- [ ] Justify choice: "We use cluster-based pre-filtering because..."\n- [ ] Define hybrid scoring formula mathematically (LaTeX)\n- [ ] Peer review: Member A critiques architecture for scalability; Member B critiques for interpretability\n\n## Deliverable\n`reports/hybrid_architecture.pdf` (diagram + 1-page explanation)' "$MEMBER_B" "milestone-5,member-b,type-docs,high-priority,eval-method" "M5: Hybrid System"
+
+          issue "[M5-B2] Implement Hybrid Recommendation Engine" $'## Objective\nCode the integrated system that leverages both CF and clusters.\n\n## Acceptance Criteria\n- [ ] Implement the designed fusion strategy in `src/hybrid_model.py`\n- [ ] Generate recommendations for users from each cluster; verify diversity across clusters\n- [ ] Ensure runtime is acceptable (< 2s per user on laptop CPU)\n- [ ] Add configuration file (`config.yaml`) for model weights and thresholds\n- [ ] Write unit tests for the hybrid scorer (3 test cases)\n\n## Deliverable\n`src/hybrid_model.py` + `tests/test_hybrid.py`' "$MEMBER_B" "milestone-5,member-b,type-code,high-priority,eval-method" "M5: Hybrid System"
+
+          issue "[M5-Shared] Comparative Analysis: Pure CF vs Hybrid vs SVD" $'## Objective\nProduce the evidence that your hybrid is superior (or honestly report when it is not).\n\n## Acceptance Criteria\n- [ ] Comparison table: Model | RMSE | Precision@5 | Recall@5 | F1 | Coverage | Runtime\n- [ ] Statistical test: paired t-test or Wilcoxon signed-rank on per-user metrics between best CF and Hybrid\n- [ ] Discussion: "When does the hybrid win? When does it lose?" (e.g., power users vs cold-start users)\n- [ ] Write the "Results: Model Comparison" report section with all tables and figures\n\n## Grading Impact\n**Results (3/20)** + **Method (4/20)** bonus for honesty and depth.' "both" "milestone-5,both-members,type-analysis,high-priority,eval-results,eval-method" "M5: Hybrid System"
+
+      - name: 📈 Milestone 6 — DSS & Visualization issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M6-B1] Define Library Decision KPIs" $'## Objective\nTranslate machine learning metrics into library management language.\n\n## Acceptance Criteria\n- [ ] Define 5 KPIs with formulas:\n  1. Catalog Coverage (% of catalog ever recommended)\n  2. Diversity (intra-list dissimilarity)\n  3. Novelty (average popularity rank of recommendations)\n  4. Serendipity (unexpected successful recommendations)\n  5. Acquisition ROI (predicted demand vs cost)\n- [ ] Compute each KPI for UBCF, SVD, and Hybrid\n- [ ] Create KPI comparison bar chart (Plotly)\n- [ ] Write 1-page: "What should the librarian do with these numbers?"\n\n## Grading Impact\nCore **DSS (3/20)** + **Bonus** for advanced visualizations.' "$MEMBER_B" "milestone-6,member-b,type-analysis,high-priority,eval-dss" "M6: DSS & Visualization"
+
+          issue "[M6-A1] Generate Model Performance Charts" $'## Objective\nCreate publication-ready figures for the report and presentation.\n\n## Acceptance Criteria\n- [ ] ROC curves per model (if binary relevance threshold used)\n- [ ] Precision-Recall curves per model\n- [ ] Bar chart: RMSE across all models with error bars (if cross-validation folds used)\n- [ ] Heatmap: model × metric matrix\n- [ ] All figures exported as 300 DPI PNG and vector PDF for LaTeX\n- [ ] Consistent color palette and caption format\n\n## Deliverable\n`reports/figures/` with 6+ high-quality charts.' "$MEMBER_A" "milestone-6,member-a,type-analysis,high-priority,eval-results" "M6: DSS & Visualization"
+
+          issue "[M6-B2] Build Interactive Streamlit Dashboard" $'## Objective\nDeliver the "wow factor" and make the DSS tangible for non-technical stakeholders.\n\n## Acceptance Criteria\n- [ ] Sidebar: select user ID or demographic profile\n- [ ] Main panel: show Top-N recommendations with book covers (if available) or titles\n- [ ] Second panel: show user\'s cluster persona and why these books were chosen\n- [ ] Third panel: librarian view — cluster demand summary, acquisition suggestions\n- [ ] Deploy locally with `streamlit run app.py`; record 2-minute demo video (optional but impressive)\n\n## Deliverable\n`app.py` + `README.md` launch instructions.' "$MEMBER_B" "milestone-6,member-b,type-code,high-priority,eval-dss" "M6: DSS & Visualization"
+
+          issue "[M6-Shared] Write DSS Interpretation Report" $'## Objective\nAnswer the ultimate question: "So what should the library do?"\n\n## Acceptance Criteria\n- [ ] 2-3 pages translating clusters into actions:\n  - Cluster 1 (Researchers) → Expand technical collection, subscribe to ACM/IEEE\n  - Cluster 2 (Casual Readers) → Popular fiction display near entrance\n  - Cluster 3 (Genre Loyalists) → Themed events and targeted newsletters\n- [ ] Cold-start policy: "New students receive a welcome bundle based on major/department"\n- [ ] Limitations: "Our model does not account for seasonality; future work..."\n- [ ] Cite 2 academic sources on recommender systems in libraries\n\n## Deliverable\n`reports/chapters/dss.tex`' "both" "milestone-6,both-members,type-docs,high-priority,eval-dss,eval-report" "M6: DSS & Visualization"
+
+      - name: 🧪 Milestone 7 — Evaluation & Tuning issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M7-A1] Compute Final Evaluation Metrics" $'## Objective\nProduce the definitive numbers that prove (or disprove) system quality.\n\n## Acceptance Criteria\n- [ ] RMSE, MAE for rating prediction models\n- [ ] Precision@5, Precision@10, Recall@5, Recall@10 for ranking models\n- [ ] F1-score per model\n- [ ] Top-N Accuracy (Hit Rate) for N=5,10,20\n- [ ] Coverage metric (% of item catalog recommended to at least one user)\n- [ ] All metrics computed on the held-out test set only\n\n## Deliverable\n`reports/tables/final_metrics.csv` + LaTeX table code.' "$MEMBER_A" "milestone-7,member-a,type-analysis,high-priority,eval-results" "M7: Evaluation & Tuning"
+
+          issue "[M7-A2] Statistical Significance Testing" $'## Objective\nProve that differences between models are real, not random.\n\n## Acceptance Criteria\n- [ ] Paired t-test or Wilcoxon signed-rank test on per-user RMSE between best two models\n- [ ] McNemar test or binomial test on hit rate if appropriate\n- [ ] Report p-values and effect sizes (Cohen\'s d)\n- [ ] Interpret: "The hybrid improves Precision@5 by 0.03; this is statistically significant at p<<0.01 with medium effect size."\n\n## Grading Impact\nDistinguishes a 16/20 from a 20/20. Shows scientific rigor.' "$MEMBER_A" "milestone-7,member-a,type-analysis,high-priority,eval-results" "M7: Evaluation & Tuning"
+
+          issue "[M7-A3] Hyperparameter Tuning Grid Search" $'## Objective\nOptimize the best model fairly without overfitting.\n\n## Acceptance Criteria\n- [ ] Define search space for final model (e.g., SVD: n_factors [20,50,100], reg_all [0.02,0.1])\n- [ ] Use cross-validation (3-fold) during search\n- [ ] Report best parameters and validation curve plots\n- [ ] Final evaluation on untouched test set using best params only\n- [ ] Document tuning time and computational cost\n\n## Deliverable\n`notebooks/08_hyperparameter_tuning.ipynb`' "$MEMBER_A" "milestone-7,member-a,type-code,high-priority,eval-method" "M7: Evaluation & Tuning"
+
+          issue "[M7-B1] Sensitivity Analysis (Sparsity vs Performance)" $'## Objective\nShow the system\'s robustness under realistic library conditions.\n\n## Acceptance Criteria\n- [ ] Subsample training data to 80%, 60%, 40%, 20% sparsity levels\n- [ ] Plot performance decay curve: RMSE vs. Sparsity, Precision@5 vs. Sparsity\n- [ ] Identify "breaking point" where quality becomes unacceptable\n- [ ] Recommend minimum data collection threshold for library deployment\n- [ ] Write "Robustness & Limitations" report section\n\n## Grading Impact\n**Results (3/20)** + demonstrates maturity for **DSS (3/20)**.' "$MEMBER_B" "milestone-7,member-b,type-analysis,high-priority,eval-results,eval-dss" "M7: Evaluation & Tuning"
+
+      - name: 📑 Milestone 8 — Documentation & Defense issues
+        run: |
+          issue() { /tmp/create_issue.sh "$1" "$2" "$3" "$4" "$5"; }
+
+          issue "[M8-A1] Finalize Clean Jupyter Notebook" $'## Objective\nDeliver the executable artifact that proves your code works.\n\n## Acceptance Criteria\n- [ ] Single `main.ipynb` or numbered sequence `01_...` through `08_...` that runs end-to-end\n- [ ] Every cell has a markdown explanation: what, why, and interpretation\n- [ ] No hardcoded absolute paths; use relative paths from repo root\n- [ ] Clear outputs saved (but not excessively large tables)\n- [ ] `README.md` contains exact reproduction instructions: clone, install, run\n- [ ] Test on a fresh virtual machine or colleague\'s laptop\n\n## Grading Impact\n**Code (2/20)** — cleanliness and executability are binary: pass/fail.' "$MEMBER_A" "milestone-8,member-a,type-code,high-priority,eval-code" "M8: Documentation & Defense"
+
+          issue "[M8-B1] Write PDF Report (Full Draft)" $'## Objective\nSynthesize 8 weeks of work into a coherent, professional document.\n\n## Structure (strictly follow brief)\n1. **Introduction** — Business problem, objectives, scope\n2. **Description des données** — Source, schema, preprocessing, sparsity\n3. **Méthode utilisée** — UBCF, IBCF, SVD, K-Means, Hybrid; justifications; diagrams\n4. **Résultats** — Metrics, comparison tables, statistical tests, figures\n5. **Conclusion** — Summary, limitations, future work\n\n## Acceptance Criteria\n- [ ] 15-25 pages excluding appendices\n- [ ] Minimum 8 figures, all captioned and referenced in text\n- [ ] Proper citations (≥ 8 references)\n- [ ] LaTeX formatting or professional Word/Google Docs export\n- [ ] Grammar and spelling check completed\n- [ ] Peer review: swap reports for 30-minute critique session\n\n## Deliverable\n`reports/final_report.pdf`' "$MEMBER_B" "milestone-8,member-b,type-docs,high-priority,eval-report" "M8: Documentation & Defense"
+
+          issue "[M8-B2] Create 10-15min Presentation Slides" $'## Objective\nTell a compelling story in limited time.\n\n## Structure\n1. **Hook (1 min):** The library\'s problem — students missing books\n2. **Data (2 min):** What we analyzed, key EDA insight\n3. **Method (3 min):** The 3+ models; show the architecture diagram\n4. **Results (2 min):** The winning metric table; one great chart\n5. **DSS (3 min):** The personas, the dashboard demo, the librarian\'s action list\n6. **Conclusion (1 min):** What we learned, what\'s next\n7. **Q&A prep (3 min buffer)**\n\n## Acceptance Criteria\n- [ ] 12-18 slides max\n- [ ] Large fonts, minimal code, maximal visualization\n- [ ] Demo video or live Streamlit dashboard embedded\n- [ ] Both members know every slide; each presents their domain expertise\n- [ ] Practice run recorded; review for filler words and timing\n\n## Deliverable\n`presentation.pptx` or `presentation.pdf`' "$MEMBER_B" "milestone-8,member-b,type-docs,high-priority,eval-presentation" "M8: Documentation & Defense"
+
+          issue "[M8-Shared] Mock Oral Defense & Q&A Rehearsal" $'## Objective\nEliminate surprises during the real defense.\n\n## Acceptance Criteria\n- [ ] Schedule 2 mock sessions with a friend or mentor playing "hostile jury"\n- [ ] Prepare answers for classic questions:\n  - "Why K-Means and not DBSCAN?"\n  - "How do you handle the cold start in production?"\n  - "What is the business value of a 0.02 RMSE improvement?"\n  - "Why should we trust your clusters?"\n  - "What are the ethical risks of profiling students?"\n- [ ] Time the presentation: aim for 12 minutes to leave buffer\n- [ ] Prepare backup slides: hyperparameter table, extra sensitivity plot\n- [ ] Both members can answer questions about the *entire* pipeline, not just their parts\n\n## Final Checklist\n- [ ] Report submitted (PDF)\n- [ ] Code pushed and tested\n- [ ] Presentation slides backed up to cloud + USB\n- [ ] Demo environment ready (Streamlit runs offline if no internet)\n\n## Grading Impact\n**Presentation (1/20)** — confidence and clarity win.' "both" "milestone-8,both-members,type-docs,high-priority,eval-presentation" "M8: Documentation & Defense"
+
+      - name: ✅ Final Summary
+        run: |
+          echo "========================================"
+          echo "  🚀 PROJECT ROADMAP CREATED SUCCESSFULLY"
+          echo "========================================"
+          echo ""
+          echo "Repository: ${{ github.repository }}"
+          echo "Start Date: $START"
+          echo ""
+          echo "Milestones created:"
+          gh milestone list --limit 20
+          echo ""
+          echo "Open issues by assignee:"
+          echo "  Member A ($MEMBER_A):"
+          gh issue list --assignee "$MEMBER_A" --state open | wc -l
+          echo "  Member B ($MEMBER_B):"
+          gh issue list --assignee "$MEMBER_B" --state open | wc -l
+          echo ""
+          echo "Next step: Students should visit the Issues tab, filter by milestone, and start with Phase 0."
