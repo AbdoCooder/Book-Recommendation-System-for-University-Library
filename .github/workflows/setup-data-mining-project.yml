@@ -84,11 +84,27 @@ jobs:
 
       - name: 🎯 Create milestones
         run: |
+          milestone_exists() {
+            local title="$1"
+            gh api "repos/$GH_REPO/milestones?state=all&per_page=100" --paginate --jq '.[].title' | grep -Fxq "$title"
+          }
+
           create_milestone() {
             local title="$1"
             local due="$2"
             local desc="$3"
-            gh milestone create --title "$title" --due-date "$due" --description "$desc" || echo "  ⚠️ Milestone '$title' may already exist. Skipping."
+
+            if milestone_exists "$title"; then
+              echo "  ℹ️ Milestone '$title' already exists. Skipping creation."
+              return 0
+            fi
+
+            gh milestone create --title "$title" --due-date "$due" --description "$desc"
+
+            if ! milestone_exists "$title"; then
+              echo "::error::Milestone '$title' was not found after creation."
+              exit 1
+            fi
           }
 
           create_milestone "Phase 0: Learning & Prerequisites" "${{ steps.dates.outputs.phase0 }}" "Complete all theoretical learning, tool setup, and dataset validation before writing production code."
@@ -117,11 +133,25 @@ jobs:
           LABELS="$4"
           MILESTONE="$5"
 
-          ASSIGNEE_FLAGS=""
-          if [ "$ASSIGNEE_ARG" = "both" ]; then
-            ASSIGNEE_FLAGS="--assignee \"$MEMBER_A\" --assignee \"$MEMBER_B\""
-          else
-            ASSIGNEE_FLAGS="--assignee \"$ASSIGNEE_ARG\""
+          milestone_exists() {
+            local title="$1"
+            gh api "repos/$GH_REPO/milestones?state=all&per_page=100" --paginate --jq '.[].title' | grep -Fxq "$title"
+          }
+
+          for attempt in 1 2 3 4 5; do
+            if milestone_exists "$MILESTONE"; then
+              break
+            fi
+
+            echo "⏳ Waiting for milestone '$MILESTONE' to become available (attempt $attempt/5)..."
+            sleep 5
+          done
+
+          if ! milestone_exists "$MILESTONE"; then
+            echo "::error::Milestone '$MILESTONE' was not found."
+            echo "Available milestones:"
+            gh milestone list --state all --limit 20 || true
+            exit 1
           fi
 
           gh issue create \
