@@ -117,7 +117,7 @@ jobs:
           }
 
           list_milestones_via_api() {
-            gh api "repos/$GH_REPO/milestones?state=all&per_page=20" \
+            gh api "repos/$GH_REPO/milestones?state=all&per_page=100" --paginate \
               --jq '.[] | "#\(.number) \(.title) [\(.state)]"'
           }
           EOF
