@@ -27,6 +27,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MEMBER_A: ${{ github.event.inputs.member_a }}
       MEMBER_B: ${{ github.event.inputs.member_b }}
+      MILESTONE_SYNC_WAIT_SECONDS: 10
       START: ${{ github.event.inputs.start_date }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -82,12 +83,19 @@ jobs:
 
           echo "✅ Labels created/updated."
 
-      - name: 🎯 Create milestones
+      - name: 🧰 Helper — define milestone helpers
         run: |
+          cat << 'EOF' > /tmp/milestone_helpers.sh
           milestone_exists() {
             local title="$1"
-            gh api "repos/$GH_REPO/milestones?state=all&per_page=100" --paginate --jq '.[].title' | grep -Fxq "$title"
+            gh api "repos/$GH_REPO/milestones?state=all" --paginate --jq '.[].title' | grep -Fxq "$title"
           }
+          EOF
+          chmod +x /tmp/milestone_helpers.sh
+
+      - name: 🎯 Create milestones
+        run: |
+          source /tmp/milestone_helpers.sh
 
           create_milestone() {
             local title="$1"
@@ -120,7 +128,7 @@ jobs:
           echo "✅ Milestones created."
 
       - name: ⏳ Wait for API sync
-        run: sleep 10
+        run: sleep "$MILESTONE_SYNC_WAIT_SECONDS"
 
       - name: 📝 Helper — define issue creator
         run: |
@@ -133,10 +141,7 @@ jobs:
           LABELS="$4"
           MILESTONE="$5"
 
-          milestone_exists() {
-            local title="$1"
-            gh api "repos/$GH_REPO/milestones?state=all&per_page=100" --paginate --jq '.[].title' | grep -Fxq "$title"
-          }
+          source /tmp/milestone_helpers.sh
 
           for attempt in 1 2 3 4 5; do
             if milestone_exists "$MILESTONE"; then
