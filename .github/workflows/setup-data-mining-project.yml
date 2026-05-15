@@ -104,6 +104,22 @@ jobs:
             local title="$1"
             gh api "repos/$GH_REPO/milestones?state=all" --paginate --jq '.[].title' | grep -Fxq "$title"
           }
+
+          create_milestone_via_api() {
+            local title="$1"
+            local due="$2"
+            local desc="$3"
+
+            gh api --method POST "repos/$GH_REPO/milestones" \
+              -f title="$title" \
+              -f due_on="${due}T00:00:00Z" \
+              -f description="$desc"
+          }
+
+          list_milestones_via_api() {
+            gh api "repos/$GH_REPO/milestones?state=all&per_page=20" \
+              --jq '.[] | "#\(.number) \(.title) [\(.state)]"'
+          }
           EOF
           chmod +x /tmp/milestone_helpers.sh
 
@@ -121,7 +137,7 @@ jobs:
               return 0
             fi
 
-            gh milestone create --title "$title" --due-date "$due" --description "$desc"
+            create_milestone_via_api "$title" "$due" "$desc"
 
             if ! milestone_exists "$title"; then
               echo "::error::Milestone '$title' was not found after creation."
@@ -169,7 +185,7 @@ jobs:
           if ! milestone_exists "$MILESTONE"; then
             echo "::error::Milestone '$MILESTONE' was not found."
             echo "Available milestones:"
-            gh milestone list --state all --limit 20 || true
+            list_milestones_via_api || true
             exit 1
           fi
 
@@ -314,6 +330,8 @@ jobs:
 
       - name: ✅ Final Summary
         run: |
+          source /tmp/milestone_helpers.sh
+
           echo "========================================"
           echo "  🚀 PROJECT ROADMAP CREATED SUCCESSFULLY"
           echo "========================================"
@@ -322,7 +340,7 @@ jobs:
           echo "Start Date: $START"
           echo ""
           echo "Milestones created:"
-          gh milestone list --limit 20
+          list_milestones_via_api
           echo ""
           echo "Open issues by assignee:"
           echo "  Member A ($MEMBER_A):"
