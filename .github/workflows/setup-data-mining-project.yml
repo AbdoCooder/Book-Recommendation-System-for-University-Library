@@ -15,6 +15,18 @@ on:
         description: "GitHub username for Member B (Analytics & DSS Lead)"
         required: true
         default: "student-b"
+      milestone_retry_attempts:
+        description: "How many times to retry milestone lookups before failing."
+        required: true
+        default: "5"
+      milestone_retry_interval_seconds:
+        description: "Seconds to wait between milestone lookup retries."
+        required: true
+        default: "5"
+      milestone_sync_wait_seconds:
+        description: "Seconds to wait after milestone creation before creating issues."
+        required: true
+        default: "10"
 
 permissions:
   issues: write
@@ -27,6 +39,9 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MEMBER_A: ${{ github.event.inputs.member_a }}
       MEMBER_B: ${{ github.event.inputs.member_b }}
+      MILESTONE_RETRY_ATTEMPTS: ${{ github.event.inputs.milestone_retry_attempts }}
+      MILESTONE_RETRY_INTERVAL_SECONDS: ${{ github.event.inputs.milestone_retry_interval_seconds }}
+      MILESTONE_SYNC_WAIT_SECONDS: ${{ github.event.inputs.milestone_sync_wait_seconds }}
       START: ${{ github.event.inputs.start_date }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -82,13 +97,36 @@ jobs:
 
           echo "✅ Labels created/updated."
 
+      - name: 🧰 Helper — define milestone helpers
+        run: |
+          cat << 'EOF' > /tmp/milestone_helpers.sh
+          milestone_exists() {
+            local title="$1"
+            gh api "repos/$GH_REPO/milestones?state=all" --paginate --jq '.[].title' | grep -Fxq "$title"
+          }
+          EOF
+          chmod +x /tmp/milestone_helpers.sh
+
       - name: 🎯 Create milestones
         run: |
+          source /tmp/milestone_helpers.sh
+
           create_milestone() {
             local title="$1"
             local due="$2"
             local desc="$3"
-            gh milestone create --title "$title" --due-date "$due" --description "$desc" || echo "  ⚠️ Milestone '$title' may already exist. Skipping."
+
+            if milestone_exists "$title"; then
+              echo "  ℹ️ Milestone '$title' already exists. Skipping creation."
+              return 0
+            fi
+
+            gh milestone create --title "$title" --due-date "$due" --description "$desc"
+
+            if ! milestone_exists "$title"; then
+              echo "::error::Milestone '$title' was not found after creation."
+              exit 1
+            fi
           }
 
           create_milestone "Phase 0: Learning & Prerequisites" "${{ steps.dates.outputs.phase0 }}" "Complete all theoretical learning, tool setup, and dataset validation before writing production code."
@@ -103,6 +141,9 @@ jobs:
 
           echo "✅ Milestones created."
 
+      - name: ⏳ Wait for API sync
+        run: sleep "$MILESTONE_SYNC_WAIT_SECONDS"
+
       - name: 📝 Helper — define issue creator
         run: |
           cat << 'EOF' > /tmp/create_issue.sh
@@ -114,11 +155,22 @@ jobs:
           LABELS="$4"
           MILESTONE="$5"
 
-          ASSIGNEE_FLAGS=""
-          if [ "$ASSIGNEE_ARG" = "both" ]; then
-            ASSIGNEE_FLAGS="--assignee \"$MEMBER_A\" --assignee \"$MEMBER_B\""
-          else
-            ASSIGNEE_FLAGS="--assignee \"$ASSIGNEE_ARG\""
+          source /tmp/milestone_helpers.sh
+
+          for attempt in $(seq 1 "$MILESTONE_RETRY_ATTEMPTS"); do
+            if milestone_exists "$MILESTONE"; then
+              break
+            fi
+
+            echo "⏳ Waiting for milestone '$MILESTONE' to become available (attempt $attempt/$MILESTONE_RETRY_ATTEMPTS)..."
+            sleep "$MILESTONE_RETRY_INTERVAL_SECONDS"
+          done
+
+          if ! milestone_exists "$MILESTONE"; then
+            echo "::error::Milestone '$MILESTONE' was not found."
+            echo "Available milestones:"
+            gh milestone list --state all --limit 20 || true
+            exit 1
           fi
 
           gh issue create \
