@@ -103,6 +103,9 @@ jobs:
 
           echo "✅ Milestones created."
 
+      - name: ⏳ Wait for API sync
+        run: sleep 10
+
       - name: 📝 Helper — define issue creator
         run: |
           cat << 'EOF' > /tmp/create_issue.sh
