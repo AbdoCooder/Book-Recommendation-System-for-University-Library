@@ -15,6 +15,18 @@ on:
         description: "GitHub username for Member B (Analytics & DSS Lead)"
         required: true
         default: "student-b"
+      milestone_retry_attempts:
+        description: "How many times to retry milestone lookups before failing."
+        required: true
+        default: "5"
+      milestone_retry_interval_seconds:
+        description: "Seconds to wait between milestone lookup retries."
+        required: true
+        default: "5"
+      milestone_sync_wait_seconds:
+        description: "Seconds to wait after milestone creation before creating issues."
+        required: true
+        default: "10"
 
 permissions:
   issues: write
@@ -27,7 +39,9 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MEMBER_A: ${{ github.event.inputs.member_a }}
       MEMBER_B: ${{ github.event.inputs.member_b }}
-      MILESTONE_SYNC_WAIT_SECONDS: 10
+      MILESTONE_RETRY_ATTEMPTS: ${{ github.event.inputs.milestone_retry_attempts }}
+      MILESTONE_RETRY_INTERVAL_SECONDS: ${{ github.event.inputs.milestone_retry_interval_seconds }}
+      MILESTONE_SYNC_WAIT_SECONDS: ${{ github.event.inputs.milestone_sync_wait_seconds }}
       START: ${{ github.event.inputs.start_date }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -143,13 +157,13 @@ jobs:
 
           source /tmp/milestone_helpers.sh
 
-          for attempt in 1 2 3 4 5; do
+          for attempt in $(seq 1 "$MILESTONE_RETRY_ATTEMPTS"); do
             if milestone_exists "$MILESTONE"; then
               break
             fi
 
-            echo "⏳ Waiting for milestone '$MILESTONE' to become available (attempt $attempt/5)..."
-            sleep 5
+            echo "⏳ Waiting for milestone '$MILESTONE' to become available (attempt $attempt/$MILESTONE_RETRY_ATTEMPTS)..."
+            sleep "$MILESTONE_RETRY_INTERVAL_SECONDS"
           done
 
           if ! milestone_exists "$MILESTONE"; then
