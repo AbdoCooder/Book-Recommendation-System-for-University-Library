@@ -28,7 +28,11 @@ jobs:
       MEMBER_A: ${{ github.event.inputs.member_a }}
       MEMBER_B: ${{ github.event.inputs.member_b }}
       START: ${{ github.event.inputs.start_date }}
+      GH_REPO: ${{ github.repository }}
     steps:
+      - name: 🚀 Checkout Repository
+        uses: actions/checkout@v4
+
       - name: 📅 Calculate milestone due dates
         id: dates
         run: |
@@ -117,12 +121,13 @@ jobs:
             ASSIGNEE_FLAGS="--assignee \"$ASSIGNEE_ARG\""
           fi
 
-          eval gh issue create \
-            --title \"$TITLE\" \
-            --body \"$BODY\" \
-            $ASSIGNEE_FLAGS \
-            --label \"$LABELS\" \
-            --milestone \"$MILESTONE\"
+          gh issue create \
+            --title "$TITLE" \
+            --body "$BODY" \
+            $([ "$ASSIGNEE_ARG" = "both" ] && echo "--assignee $MEMBER_A --assignee $MEMBER_B" || echo "--assignee $ASSIGNEE_ARG") \
+            --label "$LABELS" \
+            --milestone "$MILESTONE" \
+            --repo "$GH_REPO"
           EOF
           chmod +x /tmp/create_issue.sh
 
