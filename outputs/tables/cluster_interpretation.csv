@@ -1,0 +1,21 @@
+Cluster,ISBN,Book-Title,Book-Author,Ratings count,Average rating
+0,9780007,Développement Web Laravel,Y. El Fassi,7,9.142857142857142
+0,9780001,Python pour Débutants,M. Alaoui,7,8.857142857142858
+0,9780008,Java Programmation Orientée Objet,R. Martin,7,8.571428571428571
+0,9780012,Analyse et Conception UML,D. Robert,7,8.571428571428571
+0,9780004,Base de Données SQL,K. Bennis,7,7.285714285714286
+1,9780001,Python pour Débutants,M. Alaoui,7,8.714285714285714
+1,9780002,Data Mining Concepts,J. Han,7,8.714285714285714
+1,9780003,Machine Learning avec Python,A. Géron,7,8.714285714285714
+1,9780010,Statistiques pour Data Science,L. Cohen,7,8.0
+1,9780009,Intelligence Artificielle,P. Russell,7,7.714285714285714
+2,9780002,Data Mining Concepts,J. Han,1,9.0
+2,9780011,Systèmes d Exploitation Linux,H. Benali,1,9.0
+2,9780004,Base de Données SQL,K. Bennis,1,8.0
+2,9780005,Réseaux Informatiques Cisco,N. Tazi,1,8.0
+2,9780006,Cybersécurité Fondamentale,S. Amrani,1,8.0
+3,9780004,Base de Données SQL,K. Bennis,5,9.0
+3,9780006,Cybersécurité Fondamentale,S. Amrani,5,9.0
+3,9780011,Systèmes d Exploitation Linux,H. Benali,5,8.4
+3,9780002,Data Mining Concepts,J. Han,5,8.0
+3,9780005,Réseaux Informatiques Cisco,N. Tazi,5,8.0

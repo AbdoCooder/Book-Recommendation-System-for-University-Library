@@ -1,0 +1,10 @@
+KPI,Valeur
+Nombre de livres,12.0
+Nombre utilisateurs,20.0
+Nombre ratings explicites,130.0
+Taille matrice utilisateurs,20.0
+Taille matrice livres,12.0
+Meilleur RMSE,1.8097625216075683
+Silhouette score,0.5182659465919274
+Precision@10,0.0
+HitRate@10,0.0
